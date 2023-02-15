@@ -1,5 +1,5 @@
 # Cheat-checker
-Meant to check similarity between several student's assignments.
+Detects similarities between sets of files, intended to detect academic dishonesty.
 ## Installation
 1. Install rust, either directly through your system's package manager, or by installing `rustup` and running `rustup install stable`.
 2. Run `cargo install cheat_checker`.
