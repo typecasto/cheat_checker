@@ -5,6 +5,7 @@ use indicatif::ProgressBar;
 use owo_colors::{style, OwoColorize};
 use std::collections::BinaryHeap;
 use std::io::Read;
+use std::num::NonZeroUsize;
 use std::path::PathBuf;
 use std::{process, thread};
 use strsim::{normalized_damerau_levenshtein, normalized_levenshtein};
@@ -13,10 +14,17 @@ use strsim::{normalized_damerau_levenshtein, normalized_levenshtein};
 #[bpaf(options, version)]
 struct CheatCheck {
 
-    /// Lower bound for cheat detection, between 0 and 1, where 1 means
-    /// identical files.
+    /// Lower bound for cheat detection.
+    ///
+    /// Between 0 and 1, where 1 means identical files.
     #[bpaf(short, long, argument("SENSITIVITY"))]
     sensitivity: f32,
+
+    /// Number of calculations to run in parallel.
+    /// 
+    /// The default is 0, meaning autodetect.
+    #[bpaf(short, long, argument("N"), fallback(0))]
+    jobs: usize,
 
     /// Logs all comparisons to this file.
     #[bpaf(short, long("log"), argument("FILE"))]
@@ -103,9 +111,14 @@ fn compare(x: &str, y: &str, opts: &CheatCheck) -> anyhow::Result<f64> {
 }
 
 fn main() {
+    // --- Process arguments and file list
     pretty_env_logger::init();
-    let opts = cheat_check().run();
-    // dbg!(&opts);
+    let mut opts = cheat_check().run();
+    if opts.jobs == 0 {
+        opts.jobs = thread::available_parallelism()
+            .unwrap_or(NonZeroUsize::new(1).unwrap()).into();
+    }
+    let opts = opts;
     let mut paths = filter_paths(&opts.files);
     // make sure we have enough files
     if paths.len() <= 1 {
@@ -114,14 +127,17 @@ fn main() {
     } else {
         log::info!("Got {} files to compare.", paths.len())
     }
-    // hashmap of combo to scores
     
-    // compare files
+    // --- Compare files
     let bar = ProgressBar::new((paths.len() * paths.len() / 2) as u64);
+    // TODO load all files into memory beforehand
     for x in &paths {
         let fx = load_file(x, &opts).unwrap();
         for y in &paths {
             // skip this comparison if we've already compared the two in opposite direction
+            // or if it's the same file twice
+            // NB: if the same file is given more than once on the command line, this will cause the
+            // progress bar to desync. do we care?
             if x >= y {
                 continue;
             }
