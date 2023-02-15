@@ -12,21 +12,29 @@ use strsim::{normalized_damerau_levenshtein, normalized_levenshtein};
 #[derive(Debug, Clone, bpaf::Bpaf)]
 #[bpaf(options, version)]
 struct CheatCheck {
-    /// Use Damerau-Levenshtein distance instead of Levenshtein distance.
-    ///
-    /// If you don't know what this is, leave it as default.
-    #[bpaf(short('D'), long("damerau"), switch)]
-    damerau_mode: bool,
 
-    /// Lower bound for cheat detection, in the range of 0-1.
+    /// Lower bound for cheat detection, between 0 and 1, where 1 means
+    /// identical files.
     #[bpaf(short, long, argument("SENSITIVITY"))]
     sensitivity: f32,
 
+    /// Logs all comparisons to this file.
+    #[bpaf(short, long("log"), argument("FILE"))]
+    logfile: Option<PathBuf>,
+
+    /// Use Damerau-Levenshtein distance instead of Levenshtein distance.
+    ///
+    /// About 20x slower.
+    #[bpaf(short('D'), long("damerau"), switch)]
+    damerau_mode: bool,
+
     /// Program used to format code before checking
     ///
-    /// Before comparing two files, we'll run them both through this program,
-    /// and compare the results. Improves detection, since changing the format
-    /// won't affect the results anymore.
+    /// Before comparing two files, we'll run them both through this program.
+    /// Improves detection, since changing the format won't affect the results
+    /// anymore.
+    /// 
+    /// TODO
     #[bpaf(short, long, argument("PROGRAM"))]
     formatter: Option<String>,
 
@@ -35,6 +43,8 @@ struct CheatCheck {
     /// If a file matches this file exactly, it will not be cheat checked.
     /// This is intended to avoid the situation where several students didn't
     /// do the assignment, and thus have exactly the same file turned in.
+    /// 
+    /// TODO
     #[bpaf(short, long, argument("FILE"))]
     template: Option<PathBuf>,
 
@@ -118,6 +128,7 @@ fn main() {
             let fy = load_file(y, &opts).unwrap();
             let similarity = compare(&fx, &fy, &opts).unwrap();
             // TODO multithread this for 4x increase ez
+            // TODO log all to a file
             if &similarity >= &opts.sensitivity.into() {
                 bar.println(format!(
                     "{}\n{}\n\t{:0<1.3}",
