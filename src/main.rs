@@ -2,8 +2,9 @@
 
 use encoding_rs::Encoding;
 use indicatif::ProgressBar;
-use owo_colors::{style, OwoColorize};
-use std::collections::BinaryHeap;
+use log::LevelFilter::{Info, Debug};
+// use owo_colors::{style, OwoColorize};
+use std::collections::{BinaryHeap, HashMap};
 use std::io::Read;
 use std::num::NonZeroUsize;
 use std::path::PathBuf;
@@ -25,6 +26,10 @@ struct CheatCheck {
     /// The default is 0, meaning autodetect.
     #[bpaf(short, long, argument("N"), fallback(0))]
     jobs: usize,
+    
+    /// Show additional debugging information.
+    #[bpaf(short, long, switch)]
+    verbose: bool,
 
     /// Logs all comparisons to this file.
     #[bpaf(short, long("log"), argument("FILE"))]
@@ -112,7 +117,6 @@ fn compare(x: &str, y: &str, opts: &CheatCheck) -> anyhow::Result<f64> {
 
 fn main() {
     // --- Process arguments and file list
-    pretty_env_logger::init();
     let mut opts = cheat_check().run();
     if opts.jobs == 0 {
         opts.jobs = thread::available_parallelism()
@@ -120,6 +124,11 @@ fn main() {
     }
     let opts = opts;
     let mut paths = filter_paths(&opts.files);
+    if opts.verbose {
+        pretty_env_logger::formatted_builder().filter_level(Debug).init();
+    } else {
+        pretty_env_logger::formatted_builder().filter_level(Info).init();
+    }
     // make sure we have enough files
     if paths.len() <= 1 {
         log::error!("Got {} files to compare, need at least 2.", paths.len());
@@ -129,31 +138,35 @@ fn main() {
     }
     
     // --- Compare files
-    let bar = ProgressBar::new((paths.len() * paths.len() / 2) as u64);
-    // TODO load all files into memory beforehand
-    for x in &paths {
-        let fx = load_file(x, &opts).unwrap();
-        for y in &paths {
+    // load all files into memory beforehand
+    let mut files: HashMap<PathBuf, String> = HashMap::new();
+    for path in &paths {
+        files.insert(path.clone(), load_file(path, &opts).unwrap());
+    }
+    
+    // hashmap for storing scores
+    let mut scores: HashMap<(PathBuf, PathBuf), f64> = HashMap::new();
+    
+    // setup workqueue for threads
+    let mut workqueue: Vec<(&PathBuf, &PathBuf)> = Vec::new();
+
+    for (x, fx) in &files {
+        for (y, fy) in &files {
             // skip this comparison if we've already compared the two in opposite direction
             // or if it's the same file twice
-            // NB: if the same file is given more than once on the command line, this will cause the
-            // progress bar to desync. do we care?
             if x >= y {
                 continue;
             }
-            let fy = load_file(y, &opts).unwrap();
-            let similarity = compare(&fx, &fy, &opts).unwrap();
-            // TODO multithread this for 4x increase ez
-            // TODO log all to a file
-            if &similarity >= &opts.sensitivity.into() {
-                bar.println(format!(
-                    "{}\n{}\n\t{:0<1.3}",
-                    x.as_os_str().to_string_lossy(),
-                    y.as_os_str().to_string_lossy(),
-                    similarity.black().on_red()
-                ));
-            }
-            bar.inc(1);
+            workqueue.push((x, y));
+            // let similarity = compare(&fx, &fy, &opts).unwrap();
+            // if &similarity >= &opts.sensitivity.into() {
+                // bar.println(format!(
+                //     "{}\n{}\n\t{:0<1.3}",
+                //     x.as_os_str().to_string_lossy(),
+                //     y.as_os_str().to_string_lossy(),
+                //     similarity.black().on_red()
+                // ));
+            // }
         }
     }
 }
