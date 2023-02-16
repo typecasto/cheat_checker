@@ -63,11 +63,12 @@ checksum = "1a48563284b67c003ba0fb7243c87fab68885e1532c605704228a80238512e31"
 
 [[package]]
 name = "cheat_checker"
-version = "2.0.0"
+version = "2.1.0"
 dependencies = [
  "anyhow",
  "bpaf",
  "chardet",
+ "eddie",
  "encoding_rs",
  "encoding_rs_io",
  "glob",
@@ -75,7 +76,6 @@ dependencies = [
  "log",
  "owo-colors",
  "pretty_env_logger",
- "strsim",
 ]
 
 [[package]]
@@ -90,6 +90,12 @@ dependencies = [
  "unicode-width",
  "windows-sys",
 ]
+
+[[package]]
+name = "eddie"
+version = "0.4.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "12ad36183b190ad1632999a8735b9842f3fda7a5afa433d9132e80860ef7051a"
 
 [[package]]
 name = "encode_unicode"
@@ -268,12 +274,6 @@ name = "regex-syntax"
 version = "0.6.28"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "456c603be3e8d448b072f410900c09faf164fbce2d480456f50eea6e25f9c848"
-
-[[package]]
-name = "strsim"
-version = "0.10.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "73473c0e59e6d5812c5dfe2a064a6444949f089e20eec9a2e5506596494e4623"
 
 [[package]]
 name = "supports-color"

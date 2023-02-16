@@ -1,16 +1,15 @@
-#![allow(unused, dead_code)]
+// #![allow(unused, dead_code)]
 
 use encoding_rs::Encoding;
 use indicatif::ProgressBar;
 use log::LevelFilter::{Debug, Info};
-use std::collections::{BinaryHeap, HashMap};
+use std::collections::HashMap;
 use std::io::Read;
 use std::num::NonZeroUsize;
 use std::path::PathBuf;
 use std::sync::mpsc::Sender;
 use std::sync::{mpsc, Arc, Mutex};
-use std::{process, thread};
-use strsim::{normalized_damerau_levenshtein, normalized_levenshtein};
+use std::thread;
 
 #[derive(Debug, Clone, bpaf::Bpaf)]
 #[bpaf(options, version)]
@@ -33,7 +32,7 @@ struct CliArgs {
 
     /// Logs all comparisons to this file.
     #[bpaf(short, long("log"), argument("FILE"), hide)]
-    logfile: Option<PathBuf>,
+    _logfile: Option<PathBuf>,
 
     /// Program used to format code before checking
     ///
@@ -43,7 +42,7 @@ struct CliArgs {
     ///
     /// TODO
     #[bpaf(short, long, argument("PROGRAM"), hide)]
-    formatter: Option<String>,
+    _formatter: Option<String>,
 
     /// Ignored file for cheat detection.
     ///
@@ -53,7 +52,7 @@ struct CliArgs {
     ///
     /// TODO
     #[bpaf(short, long, argument("FILE"), hide)]
-    template: Option<PathBuf>,
+    _template: Option<PathBuf>,
 
     /// Files or globs of files to compare.
     #[bpaf(positional("FILE"))]
@@ -90,10 +89,10 @@ fn filter_paths(globs: &Vec<String>) -> Vec<PathBuf> {
 }
 
 /// Loads a file to a string, handling non-utf-8 encoding
-fn load_file(path: &PathBuf, program: &CliArgs) -> anyhow::Result<String> {
+fn load_file(path: &PathBuf, _program: &CliArgs) -> anyhow::Result<String> {
     let mut file = std::fs::File::open(path)?;
     let mut bytes = Vec::new();
-    file.read_to_end(&mut bytes);
+    file.read_to_end(&mut bytes)?;
     let encoding = chardet::detect(&bytes).0;
     let encoding = Encoding::for_label(encoding.as_bytes()).unwrap_or(encoding_rs::UTF_8);
     Ok(encoding.decode(&bytes).0.to_string())
@@ -119,7 +118,7 @@ fn main() {
             .filter_level(Info)
             .init();
     }
-    let mut paths = filter_paths(&opts.files);
+    let paths = filter_paths(&opts.files);
     // make sure we have enough files
     if paths.len() <= 1 {
         log::error!("Got {} files to compare, need at least 2.", paths.len());
@@ -140,8 +139,8 @@ fn main() {
 
     // queue of comparisons that need to be made
     let mut workqueue: Vec<(&PathBuf, &PathBuf)> = Vec::new();
-    for (x, fx) in &files {
-        for (y, fy) in &files {
+    for x in files.keys() {
+        for y in files.keys() {
             // skip this comparison if we've already compared the two in opposite direction
             // or if it's the same file twice
             if x >= y {
@@ -151,7 +150,7 @@ fn main() {
         }
     }
 
-    let mut workqueue: Arc<Mutex<Vec<(&PathBuf, &PathBuf)>>> = Arc::new(Mutex::new(workqueue));
+    let workqueue: Arc<Mutex<Vec<(&PathBuf, &PathBuf)>>> = Arc::new(Mutex::new(workqueue));
     // channel for receiving results
 
     // spawn the threads
@@ -165,7 +164,7 @@ fn main() {
             // give the thread a name in case we have to debug specific threads later
             thread::Builder::new()
                 .name(x.to_string())
-                .spawn_scoped(scope, || work(workqueue, &files, tx, &opts));
+                .spawn_scoped(scope, || work(workqueue, &files, tx)).unwrap();
         }
         // other thread
         scope.spawn(move || {
@@ -197,8 +196,8 @@ fn work<'a>(
     jobs: Arc<Mutex<Vec<(&'a PathBuf, &'a PathBuf)>>>,
     files: &HashMap<PathBuf, String>,
     results: Sender<(&'a PathBuf, &'a PathBuf, f64)>,
-    opts: &CliArgs,
 ) {
+    let lev = eddie::str::Levenshtein::new();
     loop {
         // lock() blocks the thread, the Result is just for if the mutex is poisoned
         let job = jobs.lock().unwrap().pop();
@@ -207,7 +206,8 @@ fn work<'a>(
             Some((x, y)) => {
                 let fx = files.get(x).unwrap();
                 let fy = files.get(y).unwrap();
-                results.send((x, y, normalized_levenshtein(fx, fy)));
+                let score = lev.similarity(fx, fy);
+                let _ = results.send((x, y, score));
             }
         }
     }
