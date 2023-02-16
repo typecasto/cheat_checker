@@ -175,7 +175,7 @@ fn main() {
                 scores.insert((x.clone(), y.clone()), score);
                 if score >= opts.sensitivity as f64 {
                     // keep this import scoped small, otherwise everything gets
-                    // a billion color methods.
+                    // a billion color methods in rust-analyzer.
                     use owo_colors::OwoColorize;
                     bar.println(format!(
                         "{}\n{}\n\t{}",
