@@ -160,7 +160,7 @@ fn main() {
             // and ends when all worker threads drop their Senders.
             for (x, y, score) in rx.iter() {
                 scores.insert((x.clone(), y.clone()), score);
-                if score >= opts.sensitivity as f64 {
+                if score >= f64::from(opts.sensitivity) {
                     // keep this import scoped small, otherwise everything gets
                     // a billion color methods in rust-analyzer.
                     use owo_colors::OwoColorize;
