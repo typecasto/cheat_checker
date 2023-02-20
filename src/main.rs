@@ -54,38 +54,31 @@ struct CliArgs {
     #[bpaf(short, long, argument("FILE"), hide)]
     _template: Option<PathBuf>,
 
-    /// Files or globs of files to compare.
-    #[bpaf(positional("FILE"))]
-    files: Vec<String>,
+    /// A set of files to compare
+    #[bpaf(external)]
+    files: Vec<PathBuf>,
 }
 
-/// Takes a list of paths and turns them into paths matching files
-fn filter_paths(globs: &Vec<String>) -> Vec<PathBuf> {
-    let mut files: Vec<PathBuf> = Vec::new();
-    for pattern in globs {
-        let paths = glob::glob(pattern);
-        match paths {
-            Ok(paths) => {
-                let count = files.len();
-                files.extend(paths.filter_map(Result::ok));
-                if count == files.len() {
-                    log::warn!("\"{}\" didn't match any files.", &pattern);
-                }
+/// Parses a list of globs, expands Takes a list of paths and turns them into paths matching files
+fn files() -> impl bpaf::Parser<Vec<PathBuf>> {
+    use bpaf::{positional, Parser};
+    positional::<String>("PATH")
+        .help("Files or globs of files to compare")
+        .parse(|pattern: String| {
+            let paths = glob::glob(&pattern)?
+                .map(|g| anyhow::Ok(std::fs::canonicalize(g?)?))
+                .collect::<Result<Vec<_>, _>>()?;
+            if paths.is_empty() {
+                anyhow::bail!("\"{}\" didn't match any files.", &pattern);
             }
-            Err(err) => {
-                log::warn!(
-                    "\"{}\" is not a valid pattern, and will be ignored. ({})",
-                    &pattern,
-                    &err.msg
-                );
-            }
-        }
-    }
-    files
-        .iter()
-        .map(std::fs::canonicalize)
-        .filter_map(Result::ok)
-        .collect()
+            anyhow::Ok(paths) // Ok::<_, dyn Error>(paths)
+        })
+        .some("You need to specify at least one pattern")
+        .map(|xs| xs.into_iter().flatten().collect())
+        .guard(
+            |xs: &Vec<PathBuf>| xs.len() >= 2,
+            "You need to specify at least two files",
+        )
 }
 
 /// Loads a file to a string, handling non-utf-8 encoding
@@ -118,19 +111,12 @@ fn main() {
             .filter_level(Info)
             .init();
     }
-    let paths = filter_paths(&opts.files);
-    // make sure we have enough files
-    if paths.len() <= 1 {
-        log::error!("Got {} files to compare, need at least 2.", paths.len());
-        return;
-    } else {
-        log::info!("Got {} files to compare.", paths.len())
-    }
+    log::info!("Got {} files to compare.", opts.files.len());
 
     // --- Compare files
     // preload all files into memory
     let mut files: HashMap<PathBuf, String> = HashMap::new();
-    for path in &paths {
+    for path in &opts.files {
         files.insert(path.clone(), load_file(path, &opts).unwrap());
     }
 
@@ -164,7 +150,8 @@ fn main() {
             // give the thread a name in case we have to debug specific threads later
             thread::Builder::new()
                 .name(x.to_string())
-                .spawn_scoped(scope, || work(workqueue, &files, tx)).unwrap();
+                .spawn_scoped(scope, || work(workqueue, &files, tx))
+                .unwrap();
         }
         // other thread
         scope.spawn(move || {
