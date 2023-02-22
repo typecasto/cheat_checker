@@ -17,6 +17,9 @@ struct CliArgs {
     /// Lower bound for cheat detection.
     ///
     /// Between 0 and 1, where 1 means identical files.
+    /// 
+    /// 
+    /// TODO move to f64
     #[bpaf(short, long, argument("SENSITIVITY"))]
     sensitivity: f32,
 
@@ -55,6 +58,9 @@ struct CliArgs {
     _template: Option<PathBuf>,
 
     /// Files or globs of files to compare.
+    /// 
+    /// 
+    /// TODO move to pathbuf
     #[bpaf(positional("FILE"))]
     files: Vec<String>,
 }
