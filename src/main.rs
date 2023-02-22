@@ -170,7 +170,8 @@ fn main() {
             // give the thread a name in case we have to debug specific threads later
             thread::Builder::new()
                 .name(x.to_string())
-                .spawn_scoped(scope, || work(workqueue, &files, tx)).unwrap();
+                .spawn_scoped(scope, || work(workqueue, &files, tx))
+                .unwrap();
         }
         // other thread
         scope.spawn(move || {
@@ -184,10 +185,10 @@ fn main() {
                     // a billion color methods in rust-analyzer.
                     use owo_colors::OwoColorize;
                     bar.println(format!(
-                        "{}\n{}\n\t{}",
+                        "%{:0>2.2}\t{}\t{}",
+                        (score * 100.0).on_red(),
                         x.to_string_lossy(),
                         y.to_string_lossy(),
-                        score.on_red()
                     ));
                 }
                 bar.inc(1);
