@@ -4,6 +4,7 @@ use encoding_rs::Encoding;
 use indicatif::ProgressBar;
 use log::LevelFilter::{Debug, Info};
 use std::collections::HashMap;
+use std::fs::File;
 use std::io::Read;
 use std::num::NonZeroUsize;
 use std::path::PathBuf;
@@ -17,11 +18,8 @@ struct CliArgs {
     /// Lower bound for cheat detection.
     ///
     /// Between 0 and 1, where 1 means identical files.
-    /// 
-    /// 
-    /// TODO move to f64
     #[bpaf(short, long, argument("SENSITIVITY"))]
-    sensitivity: f32,
+    sensitivity: f64,
 
     /// Number of calculations to run in parallel.
     ///
@@ -58,18 +56,16 @@ struct CliArgs {
     _template: Option<PathBuf>,
 
     /// Files or globs of files to compare.
-    /// 
-    /// 
-    /// TODO move to pathbuf
     #[bpaf(positional("FILE"))]
-    files: Vec<String>,
+    files: Vec<PathBuf>,
 }
 
 /// Takes a list of paths and turns them into paths matching files
-fn filter_paths(globs: &Vec<String>) -> Vec<PathBuf> {
+fn filter_paths(globs: &Vec<PathBuf>) -> Vec<PathBuf> {
     let mut files: Vec<PathBuf> = Vec::new();
     for pattern in globs {
-        let paths = glob::glob(pattern);
+        let pattern = pattern.as_os_str().to_string_lossy();
+        let paths = glob::glob(&pattern);
         match paths {
             Ok(paths) => {
                 let count = files.len();
@@ -96,7 +92,7 @@ fn filter_paths(globs: &Vec<String>) -> Vec<PathBuf> {
 
 /// Loads a file to a string, handling non-utf-8 encoding
 fn load_file(path: &PathBuf, _program: &CliArgs) -> anyhow::Result<String> {
-    let mut file = std::fs::File::open(path)?;
+    let mut file = File::open(path)?;
     let mut bytes = Vec::new();
     file.read_to_end(&mut bytes)?;
     let encoding = chardet::detect(&bytes).0;
@@ -125,6 +121,11 @@ fn main() {
             .init();
     }
     let paths = filter_paths(&opts.files);
+    // if let Some(logpath) = &opts._logfile {
+        // let file = File::create(logpath) else {
+            // log::error!("Couldn't open {} for writing.", logpath)
+        // };
+    // }
     // make sure we have enough files
     if paths.len() <= 1 {
         log::error!("Got {} files to compare, need at least 2.", paths.len());
@@ -180,12 +181,12 @@ fn main() {
             // and ends when all worker threads drop their Senders.
             for (x, y, score) in rx.iter() {
                 scores.insert((x.clone(), y.clone()), score);
-                if score >= opts.sensitivity as f64 {
+                if score >= opts.sensitivity {
                     // keep this import scoped small, otherwise everything gets
                     // a billion color methods in rust-analyzer.
                     use owo_colors::OwoColorize;
                     bar.println(format!(
-                        "%{:0>2.2}\t{}\t{}",
+                        "{:0>2.2}\t{}\t{}",
                         (score * 100.0).on_red(),
                         x.to_string_lossy(),
                         y.to_string_lossy(),
