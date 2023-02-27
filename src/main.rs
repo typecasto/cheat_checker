@@ -20,7 +20,10 @@ struct CliArgs {
     /// Between 0 and 1, where 1 means identical files.
     #[bpaf(short, long, argument("SENSITIVITY"))]
     sensitivity: f64,
-
+    
+    /// Upper bound for cheat detection.
+    #[bpaf(short, long, argument("SENSITIVITY"), fallback(2.0))]
+    max_sensitivity: f64,
     /// Number of calculations to run in parallel.
     ///
     /// The default is 0, meaning autodetect.
@@ -184,7 +187,7 @@ fn main() {
             // and ends when all worker threads drop their Senders.
             for (x, y, score) in rx.iter() {
                 scores.insert((x.clone(), y.clone()), score);
-                if score >= opts.sensitivity {
+                if score >= opts.sensitivity && score <= opts.max_sensitivity {
                     // keep this import scoped small, otherwise everything gets
                     // a billion color methods in rust-analyzer.
                     use owo_colors::OwoColorize;

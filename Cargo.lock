@@ -63,7 +63,7 @@ checksum = "1a48563284b67c003ba0fb7243c87fab68885e1532c605704228a80238512e31"
 
 [[package]]
 name = "cheat_checker"
-version = "2.2.0"
+version = "2.3.0"
 dependencies = [
  "anyhow",
  "bpaf",
