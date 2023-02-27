@@ -18,7 +18,7 @@ inherits="release"
 
 [dependencies]
 anyhow = "1.0.69"
-bpaf = { version = "0.7.8", features = ["derive", "color"] }
+bpaf = { version = "0.7.9", features = ["derive", "color"] }
 chardet = "0.2.4"
 encoding_rs = "0.8.32"
 encoding_rs_io = "0.1.7"
