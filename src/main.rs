@@ -1,5 +1,5 @@
 // #![allow(unused, dead_code)]
-
+//todo group-by-subfolder? don't compare student's files to themselves.
 use encoding_rs::Encoding;
 use indicatif::ProgressBar;
 use log::LevelFilter::{Debug, Info};
@@ -122,9 +122,9 @@ fn main() {
     }
     let paths = filter_paths(&opts.files);
     // if let Some(logpath) = &opts._logfile {
-        // let file = File::create(logpath) else {
-            // log::error!("Couldn't open {} for writing.", logpath)
-        // };
+    // let file = File::create(logpath) else {
+    // log::error!("Couldn't open {} for writing.", logpath)
+    // };
     // }
     // make sure we have enough files
     if paths.len() <= 1 {
@@ -137,8 +137,11 @@ fn main() {
     // --- Compare files
     // preload all files into memory
     let mut files: HashMap<PathBuf, String> = HashMap::new();
+    let mut widest_name = 0;
     for path in &paths {
         files.insert(path.clone(), load_file(path, &opts).unwrap());
+        // find the widest name for printing later
+        widest_name = widest_name.max(path.as_os_str().to_string_lossy().len());
     }
 
     // hashmap for storing scores
@@ -185,11 +188,15 @@ fn main() {
                     // keep this import scoped small, otherwise everything gets
                     // a billion color methods in rust-analyzer.
                     use owo_colors::OwoColorize;
+                    // todo gradient coloring from threshold -> 1
+                    // todo unique color per file?
+                    // formatted as 12.45678 (decimal place is 3) so 8 characters total, 5 after decimal thus 08.5
                     bar.println(format!(
-                        "{:0>2.2}\t{}\t{}",
-                        (score * 100.0).on_red(),
+                        "{:.6}\t{:width$}\t{}",
+                        score.red(),
                         x.to_string_lossy(),
                         y.to_string_lossy(),
+                        width = widest_name
                     ));
                 }
                 bar.inc(1);
