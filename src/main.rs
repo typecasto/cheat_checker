@@ -5,7 +5,7 @@ use indicatif::ProgressBar;
 use log::LevelFilter::{Debug, Info};
 use std::collections::HashMap;
 use std::fs::File;
-use std::io::Read;
+use std::io::{Read, Write};
 use std::num::NonZeroUsize;
 use std::path::PathBuf;
 use std::sync::mpsc::Sender;
@@ -20,7 +20,7 @@ struct CliArgs {
     /// Between 0 and 1, where 1 means identical files.
     #[bpaf(short, long, argument("SENSITIVITY"))]
     sensitivity: f64,
-    
+
     /// Upper bound for cheat detection.
     #[bpaf(short, long, argument("SENSITIVITY"), fallback(2.0))]
     max_sensitivity: f64,
@@ -35,8 +35,8 @@ struct CliArgs {
     verbose: bool,
 
     /// Logs all comparisons to this file.
-    #[bpaf(short, long("log"), argument("FILE"), hide)]
-    _logfile: Option<PathBuf>,
+    #[bpaf(short, long("log"), argument("FILE"))]
+    logfile: Option<PathBuf>,
 
     /// Program used to format code before checking
     ///
@@ -124,11 +124,6 @@ fn main() {
             .init();
     }
     let paths = filter_paths(&opts.files);
-    // if let Some(logpath) = &opts._logfile {
-    // let file = File::create(logpath) else {
-    // log::error!("Couldn't open {} for writing.", logpath)
-    // };
-    // }
     // make sure we have enough files
     if paths.len() <= 1 {
         log::error!("Got {} files to compare, need at least 2.", paths.len());
@@ -136,6 +131,11 @@ fn main() {
     } else {
         log::info!("Got {} files to compare.", paths.len())
     }
+    let mut logfile: Option<File> = opts
+        .logfile
+        .clone()
+        .and_then(|path| File::create(path).ok());
+    dbg!(&logfile);
 
     // --- Compare files
     // preload all files into memory
@@ -181,32 +181,54 @@ fn main() {
                 .unwrap();
         }
         // other thread
-        scope.spawn(move || {
-            let bar = ProgressBar::new(job_count as u64);
-            // loop runs once per message from the worker threads (blocking while waiting)
-            // and ends when all worker threads drop their Senders.
-            for (x, y, score) in rx.iter() {
-                scores.insert((x.clone(), y.clone()), score);
-                if score >= opts.sensitivity && score <= opts.max_sensitivity {
-                    // keep this import scoped small, otherwise everything gets
-                    // a billion color methods in rust-analyzer.
-                    use owo_colors::OwoColorize;
-                    // todo gradient coloring from threshold -> 1
-                    // todo unique color per file?
-                    // formatted as 12.45678 (decimal place is 3) so 8 characters total, 5 after decimal thus 08.5
-                    bar.println(format!(
-                        "{:.6}\t{:width$}\t{}",
-                        score.red(),
-                        x.to_string_lossy(),
-                        y.to_string_lossy(),
-                        width = widest_name
-                    ));
+        scope.spawn({
+            let scores = &mut scores;
+            move || {
+                let bar = ProgressBar::new(job_count as u64);
+                // loop runs once per message from the worker threads (blocking while waiting)
+                // and ends when all worker threads drop their Senders.
+                for (x, y, score) in rx.iter() {
+                    scores.insert((x.clone(), y.clone()), score);
+                    if score >= opts.sensitivity && score <= opts.max_sensitivity {
+                        // keep this import scoped small, otherwise everything gets
+                        // a billion color methods in rust-analyzer.
+                        use owo_colors::OwoColorize;
+                        // todo gradient coloring from threshold -> 1
+                        // todo unique color per file?
+                        // formatted as 12.45678 (decimal place is 3) so 8 characters total, 5 after decimal thus 08.5
+                        bar.suspend(|| {
+                            println!(
+                                "{:.6}\t{:width$}\t{}",
+                                score.red(),
+                                x.to_string_lossy(),
+                                y.to_string_lossy(),
+                                width = widest_name
+                            )
+                        });
+                    }
+                    bar.inc(1);
                 }
-                bar.inc(1);
+                bar.finish();
             }
-            bar.finish();
         });
     });
+
+    // write to logfile of scores, sorted
+    if let Some(logfile) = &mut logfile {
+        let mut scores = scores.iter().collect::<Vec<_>>();
+        // sort in descending order by flipping the closure
+        scores.sort_unstable_by(|a, b| b.1.partial_cmp(a.1).expect("Couldn't compare two scores"));
+        // scores are sorted, log them in order
+        for ((x, y), score) in &scores {
+            let _ = writeln!(
+                logfile,
+                "{:.6},{},{}",
+                score,
+                x.to_string_lossy(),
+                y.to_string_lossy(),
+            );
+        }
+    }
 }
 
 /// Make comparisons until the workqueue is empty
