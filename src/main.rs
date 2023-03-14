@@ -48,15 +48,9 @@ struct CliArgs {
     #[bpaf(short, long, argument("PROGRAM"), hide)]
     _formatter: Option<String>,
 
-    /// Ignored file for cheat detection.
-    ///
-    /// If a file matches this file exactly, it will not be cheat checked.
-    /// This is intended to avoid the situation where several students didn't
-    /// do the assignment, and thus have exactly the same file turned in.
-    ///
-    /// TODO
-    #[bpaf(short, long, argument("FILE"), hide)]
-    _template: Option<PathBuf>,
+    /// Remove whitespace before calculating similarity score
+    #[bpaf(short, long)]
+    trim: bool,
 
     /// Files or globs of files to compare.
     #[bpaf(positional("FILE"))]
@@ -94,13 +88,19 @@ fn filter_paths(globs: &Vec<PathBuf>) -> Vec<PathBuf> {
 }
 
 /// Loads a file to a string, handling non-utf-8 encoding
-fn load_file(path: &PathBuf, _program: &CliArgs) -> anyhow::Result<String> {
+fn load_file(path: &PathBuf, program: &CliArgs) -> anyhow::Result<String> {
     let mut file = File::open(path)?;
     let mut bytes = Vec::new();
     file.read_to_end(&mut bytes)?;
     let encoding = chardet::detect(&bytes).0;
     let encoding = Encoding::for_label(encoding.as_bytes()).unwrap_or(encoding_rs::UTF_8);
-    Ok(encoding.decode(&bytes).0.to_string())
+    let mut loaded_file = encoding.decode(&bytes).0.to_string();
+    // filter out whitespace characters
+    if program.trim {
+        loaded_file = loaded_file.chars()
+            .filter(|x| !x.is_whitespace()).collect();
+    }
+    Ok(loaded_file)
 }
 
 fn main() {
