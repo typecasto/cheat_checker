@@ -135,7 +135,6 @@ fn main() {
         .logfile
         .clone()
         .and_then(|path| File::create(path).ok());
-    dbg!(&logfile);
 
     // --- Compare files
     // preload all files into memory
