@@ -18,13 +18,13 @@ inherits="release"
 
 [dependencies]
 anyhow = "1.0.69"
-bpaf = { version = "0.7.9", features = ["derive", "color"] }
+bpaf = { version = "0.9.9", features = ["derive", "color"] }
 chardet = "0.2.4"
 encoding_rs = "0.8.32"
 encoding_rs_io = "0.1.7"
 glob = "0.3.1"
 indicatif = "0.17.3"
 log = "0.4.17"
-owo-colors = { version = "3.5.0", features = ["supports-color"] }
-pretty_env_logger = "0.4.0"
+owo-colors = { version = "4.0.0", features = ["supports-color"] }
+pretty_env_logger = "0.5.0"
 eddie = "0.4.2"
