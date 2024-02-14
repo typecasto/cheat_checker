@@ -143,6 +143,10 @@ fn main() {
     let mut files: HashMap<PathBuf, String> = HashMap::new();
     let mut widest_name = 0;
     for path in &paths {
+        if !path.is_file() {
+            log::debug!("{} wasn't a file.", path.to_str().unwrap_or("<error>"));
+            continue;
+        }
         files.insert(path.clone(), load_file(path, &opts).unwrap());
         // find the widest name for printing later
         widest_name = widest_name.max(path.as_os_str().to_string_lossy().len());
