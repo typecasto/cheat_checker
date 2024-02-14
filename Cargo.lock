@@ -53,11 +53,12 @@ checksum = "1a48563284b67c003ba0fb7243c87fab68885e1532c605704228a80238512e31"
 
 [[package]]
 name = "cheat_checker"
-version = "2.5.2"
+version = "2.6.0"
 dependencies = [
  "anyhow",
  "bpaf",
  "chardet",
+ "colorgrad",
  "eddie",
  "encoding_rs",
  "encoding_rs_io",
@@ -66,6 +67,15 @@ dependencies = [
  "log",
  "owo-colors",
  "pretty_env_logger",
+]
+
+[[package]]
+name = "colorgrad"
+version = "0.6.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6a5f405d474b9d05e0a093d3120e77e9bf26461b57a84b40aa2a221ac5617fb6"
+dependencies = [
+ "csscolorparser",
 ]
 
 [[package]]
@@ -80,6 +90,12 @@ dependencies = [
  "unicode-width",
  "windows-sys",
 ]
+
+[[package]]
+name = "csscolorparser"
+version = "0.6.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "eb2a7d3066da2de787b7f032c736763eb7ae5d355f81a68bab2675a96008b0bf"
 
 [[package]]
 name = "eddie"

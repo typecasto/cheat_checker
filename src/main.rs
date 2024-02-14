@@ -1,8 +1,10 @@
+use colorgrad::{Color, CustomGradient};
 // #![allow(unused, dead_code)]
 //todo group-by-subfolder? don't compare student's files to themselves.
 use encoding_rs::Encoding;
 use indicatif::ProgressBar;
 use log::LevelFilter::{Debug, Info};
+use owo_colors::{DynColor, Rgb};
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::{Read, Write};
@@ -192,13 +194,12 @@ fn main() {
                         // keep this import scoped small, otherwise everything gets
                         // a billion color methods in rust-analyzer.
                         use owo_colors::OwoColorize;
-                        // todo gradient coloring from threshold -> 1
                         // todo unique color per file?
                         // formatted as 12.45678 (decimal place is 3) so 8 characters total, 5 after decimal thus 08.5
                         bar.suspend(|| {
                             println!(
                                 "{:.6}\t{:width$}\t{}",
-                                score.red(),
+                                score.color(get_color(0.3, score, 1.0)),
                                 x.to_string_lossy(),
                                 y.to_string_lossy(),
                                 width = widest_name
@@ -228,6 +229,28 @@ fn main() {
             );
         }
     }
+}
+
+fn get_color(min: f64, score: f64, max: f64) -> impl DynColor {
+    // colors are weird, man
+    let Ok(gradient) = CustomGradient::new()
+        .colors(&[
+            Color::from_rgba8(124, 249, 42, 255),
+            Color::from_rgba8(255, 16, 53, 255)
+        ])
+        .mode(colorgrad::BlendMode::Oklab)
+        .interpolation(colorgrad::Interpolation::CatmullRom)
+        .domain(&[min, max])
+        .build()
+        else {
+            log::debug!("Couldn't build gradient, returning Failsafe Fuschia.");
+            return Rgb(255, 0, 128); 
+        };
+    // translate from colorgrad color (f64) to owo color (u8)
+    let color = gradient.at(score);
+    let (r, g, b) = ((color.r * 255.0) as u8, (color.g * 255.0) as u8, (color.b * 255.0) as u8);
+
+    Rgb(r,g,b)
 }
 
 /// Make comparisons until the workqueue is empty

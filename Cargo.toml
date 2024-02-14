@@ -1,7 +1,7 @@
 [package]
 name = "cheat_checker"
 description = "Detects similarities between sets of files"
-version = "2.5.2"
+version = "2.6.0"
 edition = "2021"
 readme = "README.md"
 repository = "https://github.com/typecasto/cheat_checker"
@@ -28,3 +28,4 @@ log = "0.4.17"
 owo-colors = { version = "4.0.0", features = ["supports-color"] }
 pretty_env_logger = "0.5.0"
 eddie = "0.4.2"
+colorgrad ={ version = "0.6.2", default-features = false }
